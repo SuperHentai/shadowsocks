@@ -141,6 +141,7 @@ class TCPRelayHandler(object):
         self._current_user_id = 0
         self._relay_rules = server.relay_rules.copy()
         self._is_relay = False
+        self._add_ref = 0
         if not self._create_encryptor(config):
             return
 
@@ -226,9 +227,13 @@ class TCPRelayHandler(object):
         self._server.add_connection(1)
         self._server.stat_add(self._client_address[0], 1)
 
+        self._add_ref = 1
+
         self._recv_u_max_size = BUF_SIZE
         self._recv_d_max_size = BUF_SIZE
         self._recv_pack_id = 0
+        self._udp_send_pack_id = 0
+        self._udpv6_send_pack_id = 0
 
         local_sock.setblocking(False)
         local_sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -1249,7 +1254,8 @@ class TCPRelayHandler(object):
                             if self._server._config[
                                     "is_multi_user"] == 1 and self._current_user_id == 0:
                                 if self._server._config[
-                                        "obfs"] == b"tls1.2_ticket_auth":
+                                        "obfs"] == b"tls1.2_ticket_auth" or self._server._config[
+                                                "obfs"] == b"tls1.2_ticket_fastauth":
                                     if(len(obfs_decode) > 3):
                                         host = obfs_decode[3] + ":" + str(self._server._listen_port)
                             need_sendback = True
@@ -1661,8 +1667,9 @@ class TCPRelayHandler(object):
         self._encryptor = None
         self._dns_resolver.remove_callback(self._handle_dns_resolved)
         self._server.remove_handler(self)
-        self._server.add_connection(-1)
-        self._server.stat_add(self._client_address[0], -1)
+        if self._add_ref > 0:
+            self._server.add_connection(-1)
+            self._server.stat_add(self._client_address[0], -1)
 
 
 class TCPRelay(object):
